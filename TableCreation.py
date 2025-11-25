@@ -2,9 +2,20 @@ import mysql.connector
 from mysql.connector import Error
 
 def create_connection():
+
+    '''
+        This function has been purely dedicated in creation of MySQL Connection Object.
+        Once created, in which ever function is this function called, It will be solely
+        to build connection.
+
+        Note : Once built connection. It is in that function that connection and 
+        connection cursor needs to be closed after completion of an operation.
+
+    '''
+
     try:
         connection = mysql.connector.connect(
-            host="127.0.0.1",        # e.g., "127.0.0.1"
+            host="127.0.0.1",        
             user="root",
             password="root",
             database="swift_recon"
@@ -14,18 +25,18 @@ def create_connection():
     except Error as e:
         print("Error:", e)
         return None
-    
-# def check_connection():
-#     connection=create_connection()
-#     if connection:
-#         connection.close()
-#         return "Connected"
-#     return "Not Connected"
 
-# a=check_connection()
-# print(a)
 
 def querydType(option):
+
+    '''
+        This Function basically has the duty to convert the selected option datatype, from the column container, 
+        it will be converted into MySQL Datatype Parameters and appended to the list of columns.
+
+        This will be only called during Table Operations stage.
+
+    '''
+
     if option.lower()=='varchar':
         return 'VARCHAR(200) DEFAULT NULL'
     elif option.lower()=='int':
@@ -34,6 +45,7 @@ def querydType(option):
         return 'FLOAT DEFAULT NULL'
     elif option.lower()=='datetime':
         return 'DATETIME DEFAULT NULL'
+
 
 def TableInputs(uploadedFile,pd):
     from collections import defaultdict
@@ -55,15 +67,17 @@ def TableInputs(uploadedFile,pd):
             This is to help seggregate the column datatypes by default unless the user thinks otherwise, will have option to select.
 
     '''
+
     tableHeaders=tableDF.columns.to_list()
-    
     columns=defaultdict()
 
     ''' 
         The below loop actually helps us append by default the column headers into the respective datatype keys.
 
         ALL DATATYPES : 'VARCHAR','INT','STRING','FLOAT'
+
     '''
+
     for value in tableHeaders:
         count=0
         creationViewDF=tableDF[value].head(10).values.tolist()
@@ -79,6 +93,18 @@ def TableInputs(uploadedFile,pd):
     return {'fileName':FileName,'fileType':FileType,'columnsAll':columns}
 
 def TableCreation(query):
+
+    '''
+        This code block is solely dedicated to Table Creation purpose.
+        This Table belongs to the data user uploads.
+        
+        The function accepts a CREATE TABLE query as an argument, that is created during Table Operations.
+
+        Note : This functions calls the create_connection() function. The connection and the cursor connection needs to be closed in here itself.
+            If ever overloaded / overriden, please make sure to remember the fact to close the connection, if no further operation is required.
+
+    '''
+
     connection=create_connection()
     creationStatus=None
     if connection:
@@ -98,11 +124,50 @@ def TableCreation(query):
 
         return creationStatus
     
-def TableOperations(uploadedFile,pd,st,tc):
-    uploadedFileDict = tc.TableInputs(uploadedFile,pd)
+def TableOperations(uploadedFile,pd,st):
+
+    '''
+        This is the main play arena for all the Table Creation Operation.
+        The function takes arguments of streamlit uploaded file object, pandas object, streamlit object itself.
+
+        This function will receive all the data and metadata related to the uploaded File from TableInputs function.
+        The streamlit Uploaded file object and pandas object will be passed onto TableInputs.
+        
+        The data returned is in the format : {'fileName':FileName,'fileType':FileType,'columnsAll':columns}
+
+        In here,
+            3 Tables will be created :
+                -> Main Table
+                -> Invalid Table
+                -> Invalid History Table
+
+    '''
+
+    uploadedFileDict = TableInputs(uploadedFile,pd)
     
+    '''
+        Data Type Options :
+
+            This is to provide the scope of datatypes that the application supports as of now.
+            Out of these scopes, can the user select the datatype of the column if they want.
+        
+        File Type Options :
+
+            This stores the scope of file types our app supports for Reconciliation.
+
+    '''
+
     dataTypeOptions=('VARCHAR','INT','FLOAT','DATETIME')
     fileTypeOptions=("CSV","EXCEL")
+
+    '''
+        Streamlit Session State Variables :
+
+            Streamlit session state variables are used for temporary usage to save the 
+            filenames and filetypes which are being used to actually have a default input
+            for both File Name Input and File Type Input.
+
+    '''
 
     if 'fileName' not in st.session_state:
         st.session_state['fileName']=uploadedFileDict['fileName']
@@ -112,6 +177,31 @@ def TableOperations(uploadedFile,pd,st,tc):
     
     fileNameInput=st.text_input(label="File Name : ",value=st.session_state['fileName'],key='fileName')
     fileTypeInput=st.selectbox(label="File Type : ",options=fileTypeOptions,key='fileType')
+
+    '''
+        Table Query Elements :
+            This is first initialized as an Empty list.
+            The Sole purpose of this list is to append all the query datatype details
+            of each column seperately.
+        
+        Streamlit Form :
+            It holds all the elements required to create the table.
+            And, has the submit button labled as Create Table to 
+            trigger and execute the Query.
+
+        Streamlit Container :
+            This is to subdivide the form space into containers.
+            Each container belongs to each column.
+
+        Streamlit Toast :
+            It is a notification system, set for Infinite duration.
+            It will display the status of the table creation.
+
+            It holds the message that is returned from the Table Creation
+            function.
+            This message is passed inside the toast as Creation Status.
+
+    '''
 
     tableQueryElements=[]
     with st.form(key='Column DataType Selection', clear_on_submit=False, enter_to_submit=False):
@@ -124,7 +214,7 @@ def TableOperations(uploadedFile,pd,st,tc):
                 st.write(f'{key}')
                 dTypeOption=st.selectbox(label='Data Type : ',options=dataTypeOptions,key=f'{dataType} {key}')
                 
-                dType=tc.querydType(dTypeOption)
+                dType=querydType(dTypeOption)
                 query=f"{key} {dType}"
 
                 tableQueryElements.append(query)
@@ -135,7 +225,6 @@ def TableOperations(uploadedFile,pd,st,tc):
 
         submitted=st.form_submit_button("Create Table")
         if submitted:
-            st.write(fullQuery)
             print(fullQuery)
-            creationStatus=tc.TableCreation(fullQuery)
+            creationStatus=TableCreation(fullQuery)
             st.toast(creationStatus,duration='infinite')

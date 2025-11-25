@@ -7,4 +7,4 @@ st.title('Table Creation Page')
 uploadedFile=st.file_uploader("Upload File")
 
 if uploadedFile:
-    tc.TableOperations(uploadedFile,pd,st,tc)      
+    tc.TableOperations(uploadedFile,pd,st)      

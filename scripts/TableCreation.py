@@ -92,7 +92,7 @@ def TableInputs(uploadedFile,pd):
     
     return {'fileName':FileName,'fileType':FileType,'columnsAll':columns}
 
-def TableCreation(query):
+def TableCreation(query1,query2,query3,query4,query5,query6):
 
     '''
         This code block is solely dedicated to Table Creation purpose.
@@ -106,12 +106,19 @@ def TableCreation(query):
     '''
 
     connection=create_connection()
+    creationQueries=[query1,query2,query3]
+    insertionQueries=[query4,query5,query6]
     creationStatus=None
     if connection:
         cursor=connection.cursor(dictionary=True)
         try:
-            cursor.execute(query, params=None)
-            connection.commit()
+            for query in insertionQueries:
+                cursor.execute(query, params=None)
+                connection.commit()
+            
+            for query in creationQueries:
+                cursor.execute(query, params=None)
+                connection.commit()
 
             creationStatus='Table Created Successfully'
         
@@ -206,7 +213,9 @@ def TableOperations(uploadedFile,pd,st):
     tableQueryElements=[]
     with st.form(key='Column DataType Selection', clear_on_submit=False, enter_to_submit=False):
 
-        startQuery=f"CREATE TABLE IF NOT EXISTS {fileNameInput} ( ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
+        startQuery1=f"CREATE TABLE IF NOT EXISTS {fileNameInput} ( ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
+        startQuery2=f"CREATE TABLE IF NOT EXISTS {fileNameInput}_INVALID ( ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
+        startQuery3=f"CREATE TABLE IF NOT EXISTS {fileNameInput}_INVALID_HISTORY ( ID INT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
         
         for key,value in uploadedFileDict['columnsAll'].items():
             dataType=value
@@ -221,10 +230,27 @@ def TableOperations(uploadedFile,pd,st):
         
         midQuery=", ".join(tableQueryElements)
         lastQuery=")"            # Need to add Application Table Columns Status, Recon Iteration Id, Pipeline Execution Id, later on which will also require to link as Foreign Keys
-        fullQuery=startQuery+midQuery+lastQuery
+        
+        fullQuery1=startQuery1+midQuery+lastQuery
+        fullQuery2=startQuery2+midQuery+lastQuery
+        fullQuery3=startQuery3+midQuery+lastQuery
+
+        '''
+            DATA TABLE INSERT QUERY :
+                INSERT INTO TABLE_CREATED(TABLE_NAME,TABLE_TYPE,DATA_FORMAT) VALUES()
+        '''
+        
+        insertQuery1=f"INSERT INTO TABLE_CREATED(TABLE_NAME,TABLE_TYPE,DATA_FORMAT) VALUES('{fileNameInput}','RECON_TABLE','{fileTypeInput}')"
+        insertQuery2=f"INSERT INTO TABLE_CREATED(TABLE_NAME,TABLE_TYPE,DATA_FORMAT) VALUES('{fileNameInput}_INVALID','INVALID_TABLE','{fileTypeInput}')"
+        insertQuery3=f"INSERT INTO TABLE_CREATED(TABLE_NAME,TABLE_TYPE,DATA_FORMAT) VALUES('{fileNameInput}_INVALID_HISTORY','HISTORY_TABLE','{fileTypeInput}')"
 
         submitted=st.form_submit_button("Create Table")
         if submitted:
-            print(fullQuery)
-            creationStatus=TableCreation(fullQuery)
+            print(insertQuery1)
+            print(insertQuery2)
+            print(insertQuery3)
+            print(fullQuery1)
+            print(fullQuery2)
+            print(fullQuery3)
+            creationStatus=TableCreation(fullQuery1,fullQuery2,fullQuery3,insertQuery1,insertQuery2,insertQuery3)
             st.toast(creationStatus,duration='infinite')
